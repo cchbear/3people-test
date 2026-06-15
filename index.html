@@ -30,6 +30,7 @@
         .mode-btn { background: #64748b; color: white; }
         .mode-btn.active { background: #334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
         #loading { text-align: center; font-size: 1.2rem; color: #64748b; }
+        .error-msg { color: var(--danger); font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
@@ -57,6 +58,7 @@
 </div>
 
 <script>
+    // 您的 Google 試算表 CSV 網址
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQSra_AhKvGdNaCwYWZjJhpKpyNk92b66MBYmSEmViMS6FGOxahk1Cc31VkNU70oPd621cakQTqDakh/pub?gid=0&single=true&output=csv';
     
     let allQuestions = [];
@@ -72,8 +74,19 @@
         download: true,
         header: true,
         complete: function(results) {
-            allQuestions = results.data.filter(q => q.question); // 過濾掉空行
+            // 嘗試過濾出有題目的資料 (檢查 question 欄位)
+            allQuestions = results.data.filter(q => q.question && q.question.trim() !== ''); 
+            
+            // 防呆機制：如果找不到題目，顯示錯誤訊息
+            if (allQuestions.length === 0) {
+                document.getElementById('loading').innerHTML = '<span class="error-msg">❌ 載入失敗！找不到題目。<br><br>請檢查試算表第一列的英文名稱是否完全正確：<br>id, question, optionA, optionB, optionC, optionD, answer, explanation</span>';
+                return;
+            }
+            
             initQuiz();
+        },
+        error: function(error) {
+            document.getElementById('loading').innerHTML = `<span class="error-msg">❌ 網路連線錯誤或試算表未正確發佈：<br>${error.message}</span>`;
         }
     });
 
@@ -134,15 +147,12 @@
         if (userChoice === correct) {
             btn.classList.add('correct');
             score++;
-            // 答對的話，如果它原本在錯題本裡，就移除它
             wrongIds = wrongIds.filter(id => id !== q.id);
         } else {
             btn.classList.add('wrong');
-            // 標示正確答案
             btns.forEach(b => {
                 if (b.innerText.startsWith(correct + '.')) b.classList.add('correct');
             });
-            // 加入錯題本
             if (!wrongIds.includes(q.id)) wrongIds.push(q.id);
         }
         
@@ -150,7 +160,6 @@
         document.getElementById('score').innerText = score;
         document.getElementById('total-count').innerText = attempts;
         
-        // 顯示解析
         const expBox = document.getElementById('q-explanation');
         expBox.innerText = `解析：${q.explanation || '暫無解析'}`;
         expBox.style.display = 'block';
@@ -180,11 +189,3 @@
 
 </body>
 </html>
-
-### 🚀 最後部署步驟：
-1. **GitHub 上傳**：將上面的代碼存為 `index.html`。
-2. **Settings**：到您的 GitHub Repository ➔ **Settings** ➔ **Pages**。
-3. **Branch**：選擇 **main** 並按 **Save**。
-4. **大功告成**：等待 1 分鐘，點擊生成的網址即可開始測驗！
-
-祝您考試順利，如果有任何需要微調的地方（例如顏色或字體大小），隨時告訴我！
