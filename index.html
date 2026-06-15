@@ -36,6 +36,7 @@
         .radio-item { cursor: pointer; border: 2px solid #e2e8f0; padding: 10px 20px; border-radius: 10px; transition: all 0.2s; font-weight: bold; }
         .radio-item.active { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
         .start-btn { width: 100%; background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .warning-text { color: var(--danger); font-size: 0.9rem; font-weight: bold; }
 
         /* 測驗畫面 */
         .question-box { margin-bottom: 25px; }
@@ -75,11 +76,11 @@
     <div id="setup-screen" class="setup-screen" style="display:none;">
         <h2>測驗設定</h2>
         <div class="setup-group">
-            <label>選擇年度 (複選)</label>
+            <label>選擇年度 (可複選)</label>
             <div id="year-options" class="checkbox-grid"></div>
         </div>
         <div class="setup-group">
-            <label>題目來源 (複選)</label>
+            <label>題目來源 (可複選)</label>
             <div id="source-options" class="checkbox-grid"></div>
         </div>
         <div class="setup-group">
@@ -153,19 +154,27 @@
         document.getElementById('loading').style.display = 'none';
         document.getElementById('setup-screen').style.display = 'block';
         
-        // 抓取所有年度與來源
-        const years = [...new Set(allDB.map(q => q.year))].sort().reverse();
-        const sources = [...new Set(allDB.map(q => q.source))].sort();
+        // 抓取所有年度與來源 (過濾掉空白的資料)
+        const years = [...new Set(allDB.map(q => q.year).filter(y => y && y.trim() !== ''))].sort().reverse();
+        const sources = [...new Set(allDB.map(q => q.source).filter(s => s && s.trim() !== ''))].sort();
         
         const yearBox = document.getElementById('year-options');
-        years.forEach(y => {
-            yearBox.innerHTML += `<label class="check-item"><input type="checkbox" name="year" value="${y}" checked> ${y}年</label>`;
-        });
+        if (years.length > 0) {
+            years.forEach(y => {
+                yearBox.innerHTML += `<label class="check-item"><input type="checkbox" name="year" value="${y}" checked> ${y}年</label>`;
+            });
+        } else {
+            yearBox.innerHTML = '<span class="warning-text">尚無年度資料，請於試算表填寫。</span>';
+        }
         
         const sourceBox = document.getElementById('source-options');
-        sources.forEach(s => {
-            sourceBox.innerHTML += `<label class="check-item"><input type="checkbox" name="source" value="${s}" checked> ${s}</label>`;
-        });
+        if (sources.length > 0) {
+            sources.forEach(s => {
+                sourceBox.innerHTML += `<label class="check-item"><input type="checkbox" name="source" value="${s}" checked> ${s}</label>`;
+            });
+        } else {
+            sourceBox.innerHTML = '<span class="warning-text">尚無來源資料，請於試算表填寫。</span>';
+        }
 
         // 題數選擇邏輯
         document.querySelectorAll('.radio-item').forEach(item => {
@@ -181,7 +190,10 @@
         const selSources = Array.from(document.querySelectorAll('input[name="source"]:checked')).map(i => i.value);
         const count = parseInt(document.querySelector('.radio-item.active').dataset.val);
 
-        if (selYears.length === 0 || selSources.length === 0) return alert("請至少選擇一個年度與來源！");
+        if (selYears.length === 0 || selSources.length === 0) {
+            alert("請至少選擇一個年度與來源（若無選項，請先至 Google 試算表填寫 year 與 source 欄位資料）！");
+            return;
+        }
 
         filteredDB = allDB.filter(q => selYears.includes(q.year) && selSources.includes(q.source));
         
@@ -198,6 +210,11 @@
 
         examList.sort(() => Math.random() - 0.5);
         examList = examList.slice(0, count);
+        
+        if(examList.length === 0) {
+            alert("根據您的篩選條件，目前沒有符合的題目喔！");
+            return;
+        }
         
         startExam();
     };
@@ -316,4 +333,3 @@
 
 </body>
 </html>
-
