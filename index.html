@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的線上模擬考系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { max-width: 600px; width: 100%; background: var(--card); padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .stats { font-weight: bold; color: var(--primary); }
+        .question-box { margin-bottom: 25px; }
+        .question-text { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; line-height: 1.4; }
+        .option-btn { display: block; width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #e2e8f0; border-radius: 10px; background: white; text-align: left; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+        .option-btn:hover { border-color: var(--primary); background: #eff6ff; }
+        .option-btn.correct { background: var(--success) !important; color: white; border-color: var(--success); }
+        .option-btn.wrong { background: var(--danger) !important; color: white; border-color: var(--danger); }
+        .explanation { display: none; margin-top: 20px; padding: 15px; background: #f1f5f9; border-left: 5px solid var(--primary); border-radius: 5px; }
+        .controls { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .next-btn { background: var(--primary); color: white; }
+        .mode-btn { background: #64748b; color: white; }
+        .mode-btn.active { background: #334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+        #loading { text-align: center; font-size: 1.2rem; color: #64748b; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loading">載入題庫中...</div>
+    
+    <div id="quiz-app" style="display: none;">
+        <div class="header">
+            <div class="stats">得分: <span id="score">0</span> / <span id="total-count">0</span></div>
+            <button id="mode-toggle" class="btn mode-btn">只練錯題 (OFF)</button>
+        </div>
+
+        <div class="question-box">
+            <div id="q-text" class="question-text">題目載入中...</div>
+            <div id="options-container"></div>
+        </div>
+
+        <div id="q-explanation" class="explanation"></div>
+
+        <div class="controls">
+            <button id="next-btn" class="btn next-btn" style="display: none;">下一題</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQSra_AhKvGdNaCwYWZjJhpKpyNk92b66MBYmSEmViMS6FGOxahk1Cc31VkNU70oPd621cakQTqDakh/pub?gid=0&single=true&output=csv';
+    
+    let allQuestions = [];
+    let currentQuestions = [];
+    let currentIndex = 0;
+    let score = 0;
+    let attempts = 0;
+    let wrongIds = JSON.parse(localStorage.getItem('wrong_questions') || '[]');
+    let isReviewMode = false;
+
+    // 1. 抓取資料
+    Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        complete: function(results) {
+            allQuestions = results.data.filter(q => q.question); // 過濾掉空行
+            initQuiz();
+        }
+    });
+
+    function initQuiz() {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('quiz-app').style.display = 'block';
+        resetQuiz();
+    }
+
+    function resetQuiz() {
+        if (isReviewMode) {
+            currentQuestions = allQuestions.filter(q => wrongIds.includes(q.id));
+            if (currentQuestions.length === 0) {
+                alert("太棒了！目前沒有錯題需要練習。");
+                toggleMode();
+                return;
+            }
+        } else {
+            currentQuestions = [...allQuestions];
+        }
+        
+        // 洗牌 (Shuffle)
+        currentQuestions.sort(() => Math.random() - 0.5);
+        currentIndex = 0;
+        showQuestion();
+    }
+
+    function showQuestion() {
+        const q = currentQuestions[currentIndex];
+        document.getElementById('q-text').innerText = `(${currentIndex + 1}/${currentQuestions.length}) ${q.question}`;
+        document.getElementById('q-explanation').style.display = 'none';
+        document.getElementById('next-btn').style.display = 'none';
+        
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+        
+        ['A', 'B', 'C', 'D'].forEach(label => {
+            const optText = q['option' + label];
+            if (optText) {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = `${label}. ${optText}`;
+                btn.onclick = () => checkAnswer(label, btn);
+                container.appendChild(btn);
+            }
+        });
+    }
+
+    function checkAnswer(userChoice, btn) {
+        const q = currentQuestions[currentIndex];
+        const correct = q.answer.trim().toUpperCase();
+        const btns = document.querySelectorAll('.option-btn');
+        
+        // 停用所有按鈕
+        btns.forEach(b => b.disabled = true);
+        
+        attempts++;
+        if (userChoice === correct) {
+            btn.classList.add('correct');
+            score++;
+            // 答對的話，如果它原本在錯題本裡，就移除它
+            wrongIds = wrongIds.filter(id => id !== q.id);
+        } else {
+            btn.classList.add('wrong');
+            // 標示正確答案
+            btns.forEach(b => {
+                if (b.innerText.startsWith(correct + '.')) b.classList.add('correct');
+            });
+            // 加入錯題本
+            if (!wrongIds.includes(q.id)) wrongIds.push(q.id);
+        }
+        
+        localStorage.setItem('wrong_questions', JSON.stringify(wrongIds));
+        document.getElementById('score').innerText = score;
+        document.getElementById('total-count').innerText = attempts;
+        
+        // 顯示解析
+        const expBox = document.getElementById('q-explanation');
+        expBox.innerText = `解析：${q.explanation || '暫無解析'}`;
+        expBox.style.display = 'block';
+        document.getElementById('next-btn').style.display = 'block';
+    }
+
+    document.getElementById('next-btn').onclick = () => {
+        currentIndex++;
+        if (currentIndex < currentQuestions.length) {
+            showQuestion();
+        } else {
+            alert(`測驗結束！您的總分為：${score} 分`);
+            resetQuiz();
+        }
+    };
+
+    document.getElementById('mode-toggle').onclick = toggleMode;
+
+    function toggleMode() {
+        isReviewMode = !isReviewMode;
+        const btn = document.getElementById('mode-toggle');
+        btn.innerText = isReviewMode ? "只練錯題 (ON)" : "只練錯題 (OFF)";
+        btn.classList.toggle('active', isReviewMode);
+        resetQuiz();
+    }
+</script>
+
+</body>
+</html>
+
+### 🚀 最後部署步驟：
+1. **GitHub 上傳**：將上面的代碼存為 `index.html`。
+2. **Settings**：到您的 GitHub Repository ➔ **Settings** ➔ **Pages**。
+3. **Branch**：選擇 **main** 並按 **Save**。
+4. **大功告成**：等待 1 分鐘，點擊生成的網址即可開始測驗！
+
+祝您考試順利，如果有任何需要微調的地方（例如顏色或字體大小），隨時告訴我！
