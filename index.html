@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的線上模擬考系統</title>
+    <title>智慧模擬考系統 2.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root {
@@ -12,180 +12,317 @@
             --danger: #ef4444;
             --bg: #f8fafc;
             --card: #ffffff;
+            --font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .container { max-width: 600px; width: 100%; background: var(--card); padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .stats { font-weight: bold; color: var(--primary); }
+        body { font-family: var(--font-family); background: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { max-width: 700px; width: 100%; background: var(--card); padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); min-height: 500px; }
+        
+        /* 介面優化 */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        .stats-label { font-weight: bold; color: #475569; }
+        .stats-val { color: var(--primary); margin-left: 5px; }
+        
+        .mode-btn { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; width: auto; font-family: var(--font-family); }
+        .mode-btn.active { background: #334155; color: white; border-color: #334155; }
+
+        /* 設定畫面 */
+        .setup-screen h2 { border-left: 5px solid var(--primary); padding-left: 15px; margin-bottom: 25px; }
+        .setup-group { margin-bottom: 25px; }
+        .setup-group label { display: block; font-weight: bold; margin-bottom: 10px; color: #334155; }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+        .check-item { display: flex; align-items: center; gap: 8px; cursor: pointer; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .check-item input { width: 18px; height: 18px; }
+        .radio-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .radio-item { cursor: pointer; border: 2px solid #e2e8f0; padding: 10px 20px; border-radius: 10px; transition: all 0.2s; font-weight: bold; }
+        .radio-item.active { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
+        .start-btn { width: 100%; background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 20px; }
+
+        /* 測驗畫面 */
         .question-box { margin-bottom: 25px; }
-        .question-text { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; line-height: 1.4; }
-        .option-btn { display: block; width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #e2e8f0; border-radius: 10px; background: white; text-align: left; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
-        .option-btn:hover { border-color: var(--primary); background: #eff6ff; }
+        .question-meta { color: #64748b; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold; }
+        .question-text { font-size: 1.25rem; font-weight: bold; margin-bottom: 20px; line-height: 1.5; color: #1e293b; }
+        .option-btn { display: block; width: 100%; padding: 16px; margin-bottom: 12px; border: 2px solid #e2e8f0; border-radius: 12px; background: white; text-align: left; cursor: pointer; font-size: 1.05rem; transition: all 0.2s; font-family: var(--font-family); }
+        .option-btn:hover { border-color: var(--primary); background: #f8fafc; }
+        .option-btn.selected { border-color: var(--primary); background: #eff6ff; }
         .option-btn.correct { background: var(--success) !important; color: white; border-color: var(--success); }
         .option-btn.wrong { background: var(--danger) !important; color: white; border-color: var(--danger); }
-        .explanation { display: none; margin-top: 20px; padding: 15px; background: #f1f5f9; border-left: 5px solid var(--primary); border-radius: 5px; }
-        .controls { display: flex; gap: 10px; margin-top: 20px; }
-        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .next-btn { background: var(--primary); color: white; }
-        .mode-btn { background: #64748b; color: white; }
-        .mode-btn.active { background: #334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
-        #loading { text-align: center; font-size: 1.2rem; color: #64748b; }
-        .error-msg { color: var(--danger); font-weight: bold; text-align: center; }
+
+        /* 屬性選擇器 */
+        .attribute-box { display: none; background: #fffbeb; border: 2px solid #fde68a; padding: 20px; border-radius: 12px; margin-top: 20px; text-align: center; }
+        .attr-btns { display: flex; gap: 15px; margin-top: 15px; }
+        .attr-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 1rem; font-family: var(--font-family); }
+        .btn-know { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .btn-guess { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
+
+        .explanation { display: none; margin-top: 20px; padding: 20px; background: #f8fafc; border-left: 6px solid var(--primary); border-radius: 8px; line-height: 1.6; }
+        .next-btn { display: none; width: 100%; background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 20px; }
+
+        /* 結果畫面 */
+        .result-screen h2 { text-align: center; font-size: 2rem; color: #1e293b; }
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }
+        .summary-card { background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; }
+        .summary-val { display: block; font-size: 2rem; font-weight: bold; color: var(--primary); }
+        .summary-label { color: #64748b; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="loading">載入題庫中...</div>
-    
-    <div id="quiz-app" style="display: none;">
-        <div class="header">
-            <div class="stats">得分: <span id="score">0</span> / <span id="total-count">0</span></div>
-            <button id="mode-toggle" class="btn mode-btn">只練錯題 (OFF)</button>
-        </div>
+    <div id="loading" style="text-align:center; padding:50px;">
+        <h3>正在載入智慧題庫...</h3>
+    </div>
 
+    <div id="setup-screen" class="setup-screen" style="display:none;">
+        <h2>測驗設定</h2>
+        <div class="setup-group">
+            <label>選擇年度 (複選)</label>
+            <div id="year-options" class="checkbox-grid"></div>
+        </div>
+        <div class="setup-group">
+            <label>題目來源 (複選)</label>
+            <div id="source-options" class="checkbox-grid"></div>
+        </div>
+        <div class="setup-group">
+            <label>測驗題數</label>
+            <div class="radio-group" id="count-options">
+                <div class="radio-item active" data-val="10">10題</div>
+                <div class="radio-item" data-val="20">20題</div>
+                <div class="radio-item" data-val="25">25題</div>
+                <div class="radio-item" data-val="50">50題</div>
+            </div>
+        </div>
+        <button class="start-btn" id="start-exam">開始測驗</button>
+    </div>
+
+    <div id="quiz-screen" style="display:none;">
+        <div class="header">
+            <div class="stats-label">答對 / 作答：<span id="score" class="stats-val">0</span> / <span id="attempts" class="stats-val">0</span></div>
+            <button id="mode-toggle" class="mode-btn">只練錯題 (OFF)</button>
+        </div>
         <div class="question-box">
-            <div id="q-text" class="question-text">題目載入中...</div>
+            <div id="q-meta" class="question-meta">年度 | 來源</div>
+            <div id="q-text" class="question-text">載入中...</div>
             <div id="options-container"></div>
         </div>
-
-        <div id="q-explanation" class="explanation"></div>
-
-        <div class="controls">
-            <button id="next-btn" class="btn next-btn" style="display: none;">下一題</button>
+        <div id="attr-box" class="attribute-box">
+            <strong>這題的作答屬性是？</strong>
+            <div class="attr-btns">
+                <button class="attr-btn btn-know" onclick="submitAttribute('know')">🙋 這題我會</button>
+                <button class="attr-btn btn-guess" onclick="submitAttribute('guess')">🎲 我是猜的</button>
+            </div>
         </div>
+        <div id="explanation" class="explanation"></div>
+        <button id="next-btn" class="next-btn">下一題</button>
+    </div>
+
+    <div id="result-screen" class="result-screen" style="display:none;">
+        <h2>測驗報告</h2>
+        <div class="summary-grid">
+            <div class="summary-card"><span id="res-accuracy" class="summary-val">0%</span><span class="summary-label">總答對率</span></div>
+            <div class="summary-card"><span id="res-strength" class="summary-val">0%</span><span class="summary-label">真材實力 (會且對)</span></div>
+            <div class="summary-card"><span id="res-luck" class="summary-val">0%</span><span class="summary-label">幸運加持 (猜且對)</span></div>
+            <div class="summary-card"><span id="res-mistake" class="summary-val">0%</span><span class="summary-label">粗心大意 (會但錯)</span></div>
+        </div>
+        <button class="start-btn" onclick="location.reload()">回首頁</button>
     </div>
 </div>
 
 <script>
-    // 您的 Google 試算表 CSV 網址
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQSra_AhKvGdNaCwYWZjJhpKpyNk92b66MBYmSEmViMS6FGOxahk1Cc31VkNU70oPd621cakQTqDakh/pub?gid=0&single=true&output=csv';
     
-    let allQuestions = [];
-    let currentQuestions = [];
+    let allDB = [];
+    let filteredDB = [];
+    let examList = [];
     let currentIndex = 0;
-    let score = 0;
-    let attempts = 0;
+    let examStats = { correct: 0, attempts: 0, know_correct: 0, guess_correct: 0, know_wrong: 0, guess_wrong: 0 };
     let wrongIds = JSON.parse(localStorage.getItem('wrong_questions') || '[]');
     let isReviewMode = false;
+    let selectedOptionLabel = null;
+    let selectedOptionBtn = null;
 
-    // 1. 抓取資料
+    // 載入資料
     Papa.parse(CSV_URL, {
-        download: true,
-        header: true,
-        complete: function(results) {
-            // 嘗試過濾出有題目的資料 (檢查 question 欄位)
-            allQuestions = results.data.filter(q => q.question && q.question.trim() !== ''); 
-            
-            // 防呆機制：如果找不到題目，顯示錯誤訊息
-            if (allQuestions.length === 0) {
-                document.getElementById('loading').innerHTML = '<span class="error-msg">❌ 載入失敗！找不到題目。<br><br>請檢查試算表第一列的英文名稱是否完全正確：<br>id, question, optionA, optionB, optionC, optionD, answer, explanation</span>';
-                return;
-            }
-            
-            initQuiz();
-        },
-        error: function(error) {
-            document.getElementById('loading').innerHTML = `<span class="error-msg">❌ 網路連線錯誤或試算表未正確發佈：<br>${error.message}</span>`;
+        download: true, header: true,
+        complete: function(res) {
+            allDB = res.data.filter(q => q.question);
+            initSetup();
         }
     });
 
-    function initQuiz() {
+    function initSetup() {
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('quiz-app').style.display = 'block';
-        resetQuiz();
+        document.getElementById('setup-screen').style.display = 'block';
+        
+        // 抓取所有年度與來源
+        const years = [...new Set(allDB.map(q => q.year))].sort().reverse();
+        const sources = [...new Set(allDB.map(q => q.source))].sort();
+        
+        const yearBox = document.getElementById('year-options');
+        years.forEach(y => {
+            yearBox.innerHTML += `<label class="check-item"><input type="checkbox" name="year" value="${y}" checked> ${y}年</label>`;
+        });
+        
+        const sourceBox = document.getElementById('source-options');
+        sources.forEach(s => {
+            sourceBox.innerHTML += `<label class="check-item"><input type="checkbox" name="source" value="${s}" checked> ${s}</label>`;
+        });
+
+        // 題數選擇邏輯
+        document.querySelectorAll('.radio-item').forEach(item => {
+            item.onclick = function() {
+                document.querySelectorAll('.radio-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            };
+        });
     }
 
-    function resetQuiz() {
+    document.getElementById('start-exam').onclick = function() {
+        const selYears = Array.from(document.querySelectorAll('input[name="year"]:checked')).map(i => i.value);
+        const selSources = Array.from(document.querySelectorAll('input[name="source"]:checked')).map(i => i.value);
+        const count = parseInt(document.querySelector('.radio-item.active').dataset.val);
+
+        if (selYears.length === 0 || selSources.length === 0) return alert("請至少選擇一個年度與來源！");
+
+        filteredDB = allDB.filter(q => selYears.includes(q.year) && selSources.includes(q.source));
+        
         if (isReviewMode) {
-            currentQuestions = allQuestions.filter(q => wrongIds.includes(q.id));
-            if (currentQuestions.length === 0) {
-                alert("太棒了！目前沒有錯題需要練習。");
+            examList = filteredDB.filter(q => wrongIds.includes(q.id));
+            if (examList.length === 0) {
+                alert("此範圍內目前沒有錯題紀錄！已切換回一般模式。");
                 toggleMode();
                 return;
             }
         } else {
-            currentQuestions = [...allQuestions];
+            examList = [...filteredDB];
         }
+
+        examList.sort(() => Math.random() - 0.5);
+        examList = examList.slice(0, count);
         
-        // 洗牌 (Shuffle)
-        currentQuestions.sort(() => Math.random() - 0.5);
+        startExam();
+    };
+
+    function startExam() {
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('quiz-screen').style.display = 'block';
         currentIndex = 0;
+        examStats = { correct: 0, attempts: 0, know_correct: 0, guess_correct: 0, know_wrong: 0, guess_wrong: 0 };
+        updateHeader();
         showQuestion();
     }
 
     function showQuestion() {
-        const q = currentQuestions[currentIndex];
-        document.getElementById('q-text').innerText = `(${currentIndex + 1}/${currentQuestions.length}) ${q.question}`;
-        document.getElementById('q-explanation').style.display = 'none';
+        const q = examList[currentIndex];
+        document.getElementById('q-meta').innerText = `[${q.year}年] 來源：${q.source}`;
+        document.getElementById('q-text').innerText = `(${currentIndex + 1}/${examList.length}) ${q.question}`;
+        document.getElementById('explanation').style.display = 'none';
+        document.getElementById('attr-box').style.display = 'none';
         document.getElementById('next-btn').style.display = 'none';
         
         const container = document.getElementById('options-container');
         container.innerHTML = '';
         
         ['A', 'B', 'C', 'D'].forEach(label => {
-            const optText = q['option' + label];
-            if (optText) {
+            const text = q['option' + label];
+            if (text) {
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
-                btn.innerText = `${label}. ${optText}`;
-                btn.onclick = () => checkAnswer(label, btn);
+                btn.innerText = `${label}. ${text}`;
+                btn.onclick = () => selectOption(label, btn);
                 container.appendChild(btn);
             }
         });
     }
 
-    function checkAnswer(userChoice, btn) {
-        const q = currentQuestions[currentIndex];
+    function selectOption(label, btn) {
+        selectedOptionLabel = label;
+        selectedOptionBtn = btn;
+        document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        document.getElementById('attr-box').style.display = 'block';
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function submitAttribute(attr) {
+        const q = examList[currentIndex];
         const correct = q.answer.trim().toUpperCase();
-        const btns = document.querySelectorAll('.option-btn');
+        const isCorrect = (selectedOptionLabel === correct);
         
-        // 停用所有按鈕
-        btns.forEach(b => b.disabled = true);
+        document.getElementById('attr-box').style.display = 'none';
+        document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
         
-        attempts++;
-        if (userChoice === correct) {
-            btn.classList.add('correct');
-            score++;
+        examStats.attempts++;
+        if (isCorrect) {
+            selectedOptionBtn.classList.add('correct');
+            examStats.correct++;
+            if (attr === 'know') examStats.know_correct++; else examStats.guess_correct++;
             wrongIds = wrongIds.filter(id => id !== q.id);
         } else {
-            btn.classList.add('wrong');
-            btns.forEach(b => {
+            selectedOptionBtn.classList.add('wrong');
+            document.querySelectorAll('.option-btn').forEach(b => {
                 if (b.innerText.startsWith(correct + '.')) b.classList.add('correct');
             });
+            if (attr === 'know') examStats.know_wrong++; else examStats.guess_wrong++;
             if (!wrongIds.includes(q.id)) wrongIds.push(q.id);
         }
-        
+
         localStorage.setItem('wrong_questions', JSON.stringify(wrongIds));
-        document.getElementById('score').innerText = score;
-        document.getElementById('total-count').innerText = attempts;
+        updateHeader();
         
-        const expBox = document.getElementById('q-explanation');
-        expBox.innerText = `解析：${q.explanation || '暫無解析'}`;
-        expBox.style.display = 'block';
+        const exp = document.getElementById('explanation');
+        exp.innerHTML = `<strong>解析：</strong><br>${q.explanation || '暫無解析'}`;
+        exp.style.display = 'block';
         document.getElementById('next-btn').style.display = 'block';
     }
 
-    document.getElementById('next-btn').onclick = () => {
+    function updateHeader() {
+        document.getElementById('score').innerText = examStats.correct;
+        document.getElementById('attempts').innerText = examStats.attempts;
+    }
+
+    document.getElementById('next-btn').onclick = function() {
         currentIndex++;
-        if (currentIndex < currentQuestions.length) {
+        if (currentIndex < examList.length) {
             showQuestion();
         } else {
-            alert(`測驗結束！您的總分為：${score} 分`);
-            resetQuiz();
+            showResults();
         }
     };
 
-    document.getElementById('mode-toggle').onclick = toggleMode;
+    function showResults() {
+        document.getElementById('quiz-screen').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'block';
+        
+        const total = examStats.attempts;
+        const accuracy = total > 0 ? Math.round((examStats.correct / total) * 100) : 0;
+        const strength = total > 0 ? Math.round((examStats.know_correct / total) * 100) : 0;
+        const luck = total > 0 ? Math.round((examStats.guess_correct / total) * 100) : 0;
+        const mistake = total > 0 ? Math.round((examStats.know_wrong / total) * 100) : 0;
 
+        document.getElementById('res-accuracy').innerText = accuracy + '%';
+        document.getElementById('res-strength').innerText = strength + '%';
+        document.getElementById('res-luck').innerText = luck + '%';
+        document.getElementById('res-mistake').innerText = mistake + '%';
+    }
+
+    document.getElementById('mode-toggle').onclick = toggleMode;
     function toggleMode() {
         isReviewMode = !isReviewMode;
         const btn = document.getElementById('mode-toggle');
         btn.innerText = isReviewMode ? "只練錯題 (ON)" : "只練錯題 (OFF)";
         btn.classList.toggle('active', isReviewMode);
-        resetQuiz();
     }
 </script>
 
 </body>
 </html>
+
+### 💎 本次升級重點：
+
+1.  **UI 置右與字體**：右上角功能欄現在更加清爽，且全系統強制套用「微軟正黑體」，視覺更專業。
+2.  **多維度篩選**：首頁現在會根據您的 Google 試算表內容，**自動生成**年度與來源的勾選清單（複選），方便靈活組合。
+3.  **雙層作答機制**：實作了您要求的「會/猜」確認流程。點擊 A-D 後，必須再回答認知屬性，系統才會揭曉答案。
+4.  **專業數據報告**：測驗結束後，除了答對率，更會精確算出您的「真材實力」與「幸運加持」百分比，讓您看清自己的虛實。
+5.  **錯題強化**：結合篩選功能，若開啟「只練錯題」，系統會在您選擇的年度範圍內，精準抓出那些還沒練熟的題目。
+
+您的智慧模擬考系統 2.0 已經可以正式「出港」了！趕快更新到 GitHub，體驗一下這套具備認知診斷功能的專業備考平台吧。若有任何回饋或需要更細部的微調，請隨時告訴我！
